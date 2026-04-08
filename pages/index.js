@@ -178,10 +178,6 @@ setUser((prev) => ({ ...prev, credits: prev.credits - 1 }));
 
 <br /><br />
 
-<button onClick={addCredits}>
-  Add 5 Credits (Test)
-</button>
-
       <hr />
 
       <input
