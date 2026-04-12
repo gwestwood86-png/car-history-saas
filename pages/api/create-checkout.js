@@ -38,3 +38,25 @@ export default async function handler(req, res) {
     res.status(500).json({ error: "Something went wrong" });
   }
 }
+const session = await stripe.checkout.sessions.create({
+  payment_method_types: ["card"],
+  mode: "payment",
+  line_items: [
+    {
+      price_data: {
+        currency: "gbp",
+        product_data: {
+          name: "Car History Checks",
+        },
+        unit_amount: 499,
+      },
+      quantity: 1,
+    },
+  ],
+  metadata: {
+    userId: req.body.userId,
+    credits: 5,
+  },
+  success_url: `${YOUR_URL}/success`,
+  cancel_url: `${YOUR_URL}/cancel`,
+});

@@ -1,6 +1,5 @@
 import { useState, useEffect } from "react";
-import { auth } from "../lib/firebase";
-import { db } from "../lib/firebase";
+import { auth, db } from "../lib/firebase";
 import { doc, getDoc, setDoc, updateDoc } from "firebase/firestore";
 import {
   signInWithEmailAndPassword,
@@ -18,35 +17,36 @@ export default function CarHistorySaaS() {
   const [password, setPassword] = useState("");
 
   // 🔐 Track logged in user
-useEffect(() => {
-  const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
-    if (firebaseUser) {
-      const userRef = doc(db, "users", firebaseUser.uid);
-      const userSnap = await getDoc(userRef);
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+      if (firebaseUser) {
+        const userRef = doc(db, "users", firebaseUser.uid);
+        const userSnap = await getDoc(userRef);
 
-      if (!userSnap.exists()) {
-        // New user → create with 0 credits
-        await setDoc(userRef, {
-          credits: 0,
-          email: firebaseUser.email,
-        });
-        setUser({ loggedIn: true, credits: 0, uid: firebaseUser.uid });
+        if (!userSnap.exists()) {
+          await setDoc(userRef, {
+            credits: 0,
+            email: firebaseUser.email,
+          });
+
+          setUser({ loggedIn: true, credits: 0, uid: firebaseUser.uid });
+        } else {
+          const data = userSnap.data();
+          setUser({
+            loggedIn: true,
+            credits: data.credits,
+            uid: firebaseUser.uid,
+			
+          });
+		  await refreshCredits();
+        }
       } else {
-        // Existing user → load credits
-        const data = userSnap.data();
-        setUser({
-          loggedIn: true,
-          credits: data.credits,
-          uid: firebaseUser.uid,
-        });
+        setUser({ loggedIn: false, credits: 0 });
       }
-    } else {
-      setUser({ loggedIn: false, credits: 0 });
-    }
-  });
+    });
 
-  return () => unsubscribe();
-}, []);
+    return () => unsubscribe();
+  }, []);
 
   // 🔐 Signup
   const handleSignup = async () => {
@@ -66,49 +66,45 @@ useEffect(() => {
     }
   };
 
+  // 💳 Buy credits (Stripe)
   const handleBuyCredits = async () => {
-    const res = await fetch("/api/create-checkout", {
-  method: "POST",
-  headers: {
-    "Content-Type": "application/json",
-  },
-  body: JSON.stringify({
-    userId: user.uid,
-  }),
-});
-    const data = await res.json();
-    window.location.href = data.url;
+    if (!user.loggedIn) {
+      alert("Login required");
+      return;
+    }
+
+    try {
+      const res = await fetch("/api/create-checkout", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          userId: user.uid,
+        }),
+      });
+
+      const data = await res.json();
+      window.location.href = data.url;
+    } catch (err) {
+      alert("Payment error");
+    }
   };
-  
-  const addCredits = async () => {
-  if (!user.uid) return;
 
-  try {
-    const userRef = doc(db, "users", user.uid);
-
-    await updateDoc(userRef, {
-      credits: user.credits + 5,
-    });
-
-    setUser((prev) => ({
-      ...prev,
-      credits: prev.credits + 5,
-    }));
-  } catch (err) {
-    alert("Error adding credits");
-  }
-};
-
+    // 🚗 Check vehicle
   const handleCheck = async () => {
-    if (!reg) return;
+    if (!reg || reg.length > 10) {
+      alert("Enter a valid registration");
+      return;
+    }
 
     if (!user.loggedIn) {
       alert("Please log in first");
       return;
     }
 
-    if (user.credits <= 0) {
-      alert("You need credits to run a check");
+    if (!auth.currentUser) {
+      alert("User not ready");
       return;
     }
 
@@ -116,38 +112,53 @@ useEffect(() => {
     setResult(null);
 
     try {
+      const token = await auth.currentUser.getIdToken();
+
       const res = await fetch("/api/check-car", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({ registration: reg }),
+        body: JSON.stringify({
+          registration: reg.toUpperCase().trim(),
+        }),
       });
 
       const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.error || "Request failed");
+      }
+
       setResult(data);
-
-      // deduct credit (temporary)
-      const userRef = doc(db, "users", user.uid);
-
-await updateDoc(userRef, {
-  credits: user.credits - 1,
-});
-
-setUser((prev) => ({ ...prev, credits: prev.credits - 1 }));
     } catch (err) {
-      setResult({ error: "Something went wrong" });
+      setResult({ error: err.message || "Something went wrong" });
     }
 
     setLoading(false);
   };
+  
+const refreshCredits = async () => {
+  if (!auth.currentUser) return;
+
+  const userRef = doc(db, "users", auth.currentUser.uid);
+  const userSnap = await getDoc(userRef);
+
+  if (userSnap.exists()) {
+    setUser((prev) => ({
+      ...prev,
+      credits: userSnap.data().credits,
+    }));
+  }
+};
 
   return (
     <div style={{ fontFamily: "Arial", padding: "20px", maxWidth: "500px", margin: "auto" }}>
       <h1>Car History Check</h1>
       <p>Instant UK vehicle data powered by DVLA</p>
 
-      {/* 🔐 Login UI */}
+      {/* 🔐 Auth */}
       {!user.loggedIn ? (
         <div>
           <input
@@ -172,26 +183,26 @@ setUser((prev) => ({ ...prev, credits: prev.credits - 1 }));
 
       <hr />
 
+      {/* 💳 Payments */}
       <h2>Buy Credits</h2>
-<p>£4.99 for 5 checks</p>
-<button onClick={handleBuyCredits}>Buy Now</button>
+      <p>£4.99 for 5 checks</p>
+      <button onClick={handleBuyCredits}>Buy Now</button>
 
-<br /><br />
-
-      <hr />
-
+      
+      {/* 🚗 Input */}
       <input
         placeholder="Enter registration (e.g. AB12 CDE)"
         value={reg}
-        onChange={(e) => setReg(e.target.value)}
+        onChange={(e) => setReg(e.target.value.toUpperCase())}
       />
 
       <br /><br />
 
-      <button onClick={handleCheck}>
+      <button onClick={handleCheck} disabled={loading}>
         {loading ? "Checking..." : "Check Vehicle"}
       </button>
 
+      {/* 📊 Result */}
       {result && (
         <div style={{ marginTop: "20px" }}>
           {result.error ? (
