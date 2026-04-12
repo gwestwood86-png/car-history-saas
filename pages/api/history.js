@@ -8,10 +8,10 @@ export default async function handler(req, res) {
 
     const decoded = await getAuth().verifyIdToken(token);
 
+    // 🔥 REMOVE orderBy temporarily (avoids index crash)
     const snapshot = await db
       .collection("history")
       .where("userId", "==", decoded.uid)
-      .orderBy("createdAt", "desc")
       .limit(10)
       .get();
 
@@ -19,6 +19,7 @@ export default async function handler(req, res) {
 
     res.status(200).json(history);
   } catch (err) {
+    console.error("🔥 HISTORY ERROR:", err);
     res.status(500).json({ error: err.message });
   }
 }
