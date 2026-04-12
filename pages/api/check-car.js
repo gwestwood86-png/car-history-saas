@@ -5,24 +5,26 @@ import { getAuth } from "firebase-admin/auth";
 
 export default async function handler(req, res) {
   try {
+    // 🔐 AUTH
     const token = req.headers.authorization?.split("Bearer ")[1];
 
-if (!token) {
-  return res.status(401).json({
-    error: "Unauthorized - no token provided",
-  });
-}
+    if (!token) {
+      return res.status(401).json({
+        error: "Unauthorized - no token provided",
+      });
+    }
 
-const decoded = await getAuth().verifyIdToken(token);
-const userId = decoded.uid;
+    const decoded = await getAuth().verifyIdToken(token);
+    const userId = decoded.uid;
 
+    // ❌ METHOD CHECK
     if (req.method !== "POST") {
       return res.status(405).json({ error: "Method not allowed" });
     }
 
     const { registration } = req.body;
 
-    // 1. Validate input
+    // ✅ VALIDATION
     if (!isValidUKPlate(registration)) {
       return res.status(400).json({
         error: "Invalid UK registration number",
@@ -31,13 +33,13 @@ const userId = decoded.uid;
 
     const key = registration.replace(/\s/g, "").toUpperCase();
 
-    // 2. Check cache first
+    // ✅ CACHE
     const cached = getCache(key);
     if (cached) {
       return res.status(200).json(cached);
     }
 
-    // 3. Call DVLA
+    // 🚗 DVLA API
     const response = await fetch(
       "https://driver-vehicle-licensing.api.gov.uk/vehicle-enquiry/v1/vehicles",
       {
@@ -52,7 +54,7 @@ const userId = decoded.uid;
       }
     );
 
-    // 4. Handle errors
+    // ❌ NOT FOUND
     if (response.status === 404) {
       return res.status(404).json({ error: "Vehicle not found" });
     }
@@ -63,7 +65,7 @@ const userId = decoded.uid;
 
     const data = await response.json();
 
-    // 5. Format response
+    // ✅ FORMAT RESPONSE
     const result = {
       make: data.make || "Unknown",
       year: data.yearOfManufacture || "Unknown",
@@ -73,38 +75,26 @@ const userId = decoded.uid;
       taxStatus: data.taxStatus || "Unknown",
     };
 
-    await db.collection("History").add({
-  userId,
-  registration: registration.toUpperCase(),
-  make: data.make,
-  year: data.yearOfManufacture,
-  fuel: data.fuelType,
-  colour: data.colour,
-  motStatus: data.motStatus,
-  taxStatus: data.taxStatus,
-  createdAt: new Date(),
-});
+    // ✅ SAVE TO FIREBASE (FIXED — SINGLE COLLECTION)
+    await db.collection("history").add({
+      userId,
+      registration: key,
+      make: result.make,
+      year: result.year,
+      fuel: result.fuel,
+      colour: result.colour,
+      motStatus: result.motStatus,
+      taxStatus: result.taxStatus,
+      createdAt: new Date(),
+    });
 
-    // save to Firebase
-await db.collection("carHistory").add({
-  userId,
-  registration,
-  make: data.make,
-  year: data.yearOfManufacture,
-  fuel: data.fuelType,
-  colour: data.colour,
-  motStatus: data.motStatus,
-  taxStatus: data.taxStatus,
-  createdAt: new Date(),
-});
-
-    // 6. Save cache
+    // ✅ CACHE SAVE
     setCache(key, result);
 
     return res.status(200).json(result);
 
   } catch (err) {
-    console.error("API ERROR:", err);
+    console.error("🔥 API ERROR:", err);
 
     return res.status(500).json({
       error: err.message || "Server error",
