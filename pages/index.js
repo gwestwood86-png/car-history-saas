@@ -49,6 +49,7 @@ export default function CarHistorySaaS() {
         await loadHistory();
       } else {
         setUser({ loggedIn: false, credits: 0 });
+        setHistory([]); // reset history on logout
       }
     });
 
@@ -74,16 +75,20 @@ export default function CarHistorySaaS() {
   const handleBuyCredits = async () => {
     if (!user.loggedIn) return alert("Login required");
 
-    const res = await fetch("/api/create-checkout", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ userId: user.uid }),
-    });
+    try {
+      const res = await fetch("/api/create-checkout", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ userId: user.uid }),
+      });
 
-    const data = await res.json();
-    window.location.href = data.url;
+      const data = await res.json();
+      window.location.href = data.url;
+    } catch {
+      alert("Payment error");
+    }
   };
 
   const handleCheck = async () => {
@@ -108,11 +113,13 @@ export default function CarHistorySaaS() {
       });
 
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error);
+
+      if (!res.ok) throw new Error(data.error || "Request failed");
 
       setResult(data);
       await loadHistory();
     } catch (err) {
+      console.error("CHECK ERROR:", err);
       setResult({ error: err.message });
     }
 
@@ -132,9 +139,17 @@ export default function CarHistorySaaS() {
       });
 
       const data = await res.json();
-      setHistory(data);
+
+      if (!res.ok) {
+        console.error("HISTORY ERROR:", data);
+        setHistory([]);
+        return;
+      }
+
+      setHistory(Array.isArray(data) ? data : []);
     } catch (err) {
-      console.error(err);
+      console.error("HISTORY FETCH ERROR:", err);
+      setHistory([]);
     }
   };
 
@@ -158,7 +173,7 @@ export default function CarHistorySaaS() {
           </p>
         </div>
 
-        {/* MAIN CARD */}
+        {/* CARD */}
         <div
           style={{
             maxWidth: 600,
@@ -169,7 +184,6 @@ export default function CarHistorySaaS() {
             border: `1px solid ${theme.red}`,
           }}
         >
-          {/* AUTH */}
           {!user.loggedIn ? (
             <>
               <input
@@ -199,7 +213,6 @@ export default function CarHistorySaaS() {
 
           <hr />
 
-          {/* PAYMENT */}
           <h3>Buy Credits</h3>
           <button style={btn} onClick={handleBuyCredits}>
             £4.99 for 5 checks
@@ -207,7 +220,6 @@ export default function CarHistorySaaS() {
 
           <hr />
 
-          {/* SEARCH */}
           <h3>Check Vehicle</h3>
 
           <input
@@ -218,11 +230,15 @@ export default function CarHistorySaaS() {
           />
 
           <div style={{ display: "flex", gap: 10 }}>
-            <button onClick={handleCheck} style={btn}>
+            <button onClick={handleCheck} style={btn} disabled={loading}>
               {loading ? "Checking..." : "Search"}
             </button>
 
-            <button onClick={loadHistory} style={{ ...btn, background: "#333" }}>
+            <button
+              onClick={loadHistory}
+              style={{ ...btn, background: "#333" }}
+              disabled={loading}
+            >
               📜 History
             </button>
           </div>
