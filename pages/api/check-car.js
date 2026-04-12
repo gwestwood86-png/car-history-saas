@@ -75,9 +75,14 @@ const userId = decoded.uid;
 
     // save to Firebase
 await db.collection("carHistory").add({
-  userId: decoded?.uid || "anonymous",
-  registration: key,
-  ...result,
+  userId,
+  registration,
+  make: data.make,
+  year: data.yearOfManufacture,
+  fuel: data.fuelType,
+  colour: data.colour,
+  motStatus: data.motStatus,
+  taxStatus: data.taxStatus,
   createdAt: new Date(),
 });
 

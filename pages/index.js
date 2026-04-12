@@ -175,6 +175,12 @@ export default function CarHistorySaaS() {
           </p>
         </div>
 
+        <div style={{ marginBottom: 15 }}>
+  <a href="/history" style={{ color: "#e10600", fontWeight: "bold" }}>
+    📜 View History
+  </a>
+</div>
+
         {/* CARD */}
         <div
           style={{
@@ -293,7 +299,7 @@ const btnStyle = {
 
 const inputStyle = {
   padding: "10px",
-  width: "100%",
+  width: "96%",
   marginTop: "10px",
   borderRadius: "6px",
   border: "1px solid #333",
