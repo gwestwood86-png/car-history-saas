@@ -133,6 +133,7 @@ export default function CarHistorySaaS() {
   };
 
   const refreshCredits = async () => {
+    const [history, setHistory] = useState([]);
     if (!auth.currentUser) return;
 
     const userRef = doc(db, "users", auth.currentUser.uid);
@@ -164,7 +165,7 @@ export default function CarHistorySaaS() {
   }
 };
   };
-  const [history, setHistory] = useState([]);
+ 
 
   return (
     <div
