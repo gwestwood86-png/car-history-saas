@@ -175,12 +175,6 @@ export default function CarHistorySaaS() {
           </p>
         </div>
 
-        <div style={{ marginBottom: 15 }}>
-  <a href="/history" style={{ color: "#e10600", fontWeight: "bold" }}>
-    📜 View History
-  </a>
-</div>
-
         {/* CARD */}
         <div
           style={{
@@ -254,9 +248,17 @@ export default function CarHistorySaaS() {
           <br />
           <br />
 
-          <button style={btnStyle} onClick={handleCheck} disabled={loading}>
-            {loading ? "Checking..." : "Search Vehicle"}
-          </button>
+<div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px", marginTop: "10px" }}>
+  <button onClick={handleCheck} disabled={loading} style={btnStyle}>
+    {loading ? "Checking..." : "Search Vehicle"}
+  </button>
+
+  <a href="/history" style={{ textDecoration: "none" }}>
+    <button style={{ ...btnStyle, background: "#333" }}>
+      📜 History
+    </button>
+  </a>
+</div>
 
           {/* RESULT */}
           {result && (
