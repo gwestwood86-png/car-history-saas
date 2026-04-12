@@ -49,6 +49,7 @@ export default function CarHistorySaaS() {
           });
 
           await refreshCredits();
+          loadHistory();
         }
       } else {
         setUser({ loggedIn: false, credits: 0 });
@@ -143,7 +144,27 @@ export default function CarHistorySaaS() {
         credits: userSnap.data().credits,
       }));
     }
+    const loadHistory = async () => {
+  
+      if (!auth.currentUser) return;
+
+  try {
+    const token = await auth.currentUser.getIdToken();
+
+    const res = await fetch("/api/history", {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+
+    const data = await res.json();
+    setHistory(data);
+  } catch (err) {
+    console.error(err);
+  }
+};
   };
+  const [history, setHistory] = useState([]);
 
   return (
     <div
@@ -282,6 +303,30 @@ export default function CarHistorySaaS() {
         <div style={{ textAlign: "center", marginTop: 30, opacity: 0.6 }}>
           © {new Date().getFullYear()} 1 Car Check • Performance Vehicle Data
         </div>
+        
+        {history.length > 0 && (
+  <div style={{ marginTop: "20px" }}>
+    <h3 style={{ color: "#e10600" }}>📜 Recent Searches</h3>
+
+    {history.map((item, index) => (
+      <div
+        key={index}
+        style={{
+          marginTop: "10px",
+          padding: "10px",
+          background: "#111",
+          borderLeft: "4px solid #e10600",
+          borderRadius: "6px",
+        }}
+      >
+        <p><b>Reg:</b> {item.registration}</p>
+        <p><b>Make:</b> {item.make}</p>
+        <p><b>Year:</b> {item.year}</p>
+        <p><b>Fuel:</b> {item.fuel}</p>
+      </div>
+    ))}
+  </div>
+)}
       </div>
     </div>
   );

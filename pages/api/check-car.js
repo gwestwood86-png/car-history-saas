@@ -73,6 +73,18 @@ const userId = decoded.uid;
       taxStatus: data.taxStatus || "Unknown",
     };
 
+    await db.collection("carHistory").add({
+  userId,
+  registration: registration.toUpperCase(),
+  make: data.make,
+  year: data.yearOfManufacture,
+  fuel: data.fuelType,
+  colour: data.colour,
+  motStatus: data.motStatus,
+  taxStatus: data.taxStatus,
+  createdAt: new Date(),
+});
+
     // save to Firebase
 await db.collection("carHistory").add({
   userId,
