@@ -9,6 +9,7 @@ import {
 
 const theme = {
   red: "#e10600",
+  dark: "#0a0a0a",
   card: "#141414",
 };
 
@@ -16,42 +17,36 @@ export default function CarHistorySaaS() {
   const [reg, setReg] = useState("");
   const [result, setResult] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [history, setHistory] = useState([]);
+
   const [user, setUser] = useState({ loggedIn: false, credits: 0 });
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
 
-  // ✅ FIX: history state in correct place
-  const [history, setHistory] = useState([]);
-
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       if (firebaseUser) {
         const userRef = doc(db, "users", firebaseUser.uid);
-        const userSnap = await getDoc(userRef);
+        const snap = await getDoc(userRef);
 
-        if (!userSnap.exists()) {
+        if (!snap.exists()) {
           await setDoc(userRef, {
             credits: 0,
             email: firebaseUser.email,
           });
 
-          setUser({
-            loggedIn: true,
-            credits: 0,
-            uid: firebaseUser.uid,
-          });
+          setUser({ loggedIn: true, credits: 0, uid: firebaseUser.uid });
         } else {
-          const data = userSnap.data();
+          const data = snap.data();
           setUser({
             loggedIn: true,
             credits: data.credits,
             uid: firebaseUser.uid,
           });
-
-          await refreshCredits();
-          await loadHistory(); // ✅ now works
         }
+
+        await loadHistory();
       } else {
         setUser({ loggedIn: false, credits: 0 });
       }
@@ -81,7 +76,9 @@ export default function CarHistorySaaS() {
 
     const res = await fetch("/api/create-checkout", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+      },
       body: JSON.stringify({ userId: user.uid }),
     });
 
@@ -90,8 +87,8 @@ export default function CarHistorySaaS() {
   };
 
   const handleCheck = async () => {
-    if (!reg || reg.length > 10) return alert("Invalid reg");
-    if (!user.loggedIn) return alert("Login first");
+    if (!reg || reg.length > 10) return alert("Invalid registration");
+    if (!user.loggedIn) return alert("Please login");
 
     setLoading(true);
     setResult(null);
@@ -114,7 +111,7 @@ export default function CarHistorySaaS() {
       if (!res.ok) throw new Error(data.error);
 
       setResult(data);
-      await loadHistory(); // ✅ refresh after search
+      await loadHistory();
     } catch (err) {
       setResult({ error: err.message });
     }
@@ -122,21 +119,6 @@ export default function CarHistorySaaS() {
     setLoading(false);
   };
 
-  const refreshCredits = async () => {
-    if (!auth.currentUser) return;
-
-    const userRef = doc(db, "users", auth.currentUser.uid);
-    const snap = await getDoc(userRef);
-
-    if (snap.exists()) {
-      setUser((prev) => ({
-        ...prev,
-        credits: snap.data().credits,
-      }));
-    }
-  };
-
-  // ✅ FIX: defined OUTSIDE properly
   const loadHistory = async () => {
     if (!auth.currentUser) return;
 
@@ -157,51 +139,160 @@ export default function CarHistorySaaS() {
   };
 
   return (
-    <div style={{ padding: 20, color: "white", background: "#000", minHeight: "100vh" }}>
-      <h1 style={{ color: theme.red }}>1 CAR CHECK</h1>
-
-      {!user.loggedIn ? (
-        <>
-          <input value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Email" />
-          <input value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Password" />
-          <button onClick={handleLogin}>Login</button>
-          <button onClick={handleSignup}>Sign Up</button>
-        </>
-      ) : (
-        <p>Credits: {user.credits}</p>
-      )}
-
-      <hr />
-
-      <input
-        value={reg}
-        onChange={(e) => setReg(e.target.value)}
-        placeholder="Enter reg"
-      />
-
-      <button onClick={handleCheck}>
-        {loading ? "Checking..." : "Search"}
-      </button>
-
-      <button onClick={loadHistory}>📜 Load History</button>
-
-      {result && (
-        <div>
-          <p>{result.make}</p>
-          <p>{result.year}</p>
+    <div
+      style={{
+        minHeight: "100vh",
+        backgroundImage:
+          "url('https://images.unsplash.com/photo-1542362567-b07e54358753?auto=format&fit=crop&w=1500&q=80')",
+        backgroundSize: "cover",
+        backgroundPosition: "center",
+        color: "white",
+      }}
+    >
+      <div style={{ background: "rgba(0,0,0,0.85)", minHeight: "100vh", padding: 20 }}>
+        {/* HEADER */}
+        <div style={{ textAlign: "center", marginBottom: 20 }}>
+          <h1 style={{ color: theme.red }}>1 CAR CHECK</h1>
+          <p style={{ opacity: 0.8 }}>
+            UK Vehicle Intelligence • DVLA Powered
+          </p>
         </div>
-      )}
 
-      {history.length > 0 && (
-        <div>
-          <h3>History</h3>
-          {history.map((h, i) => (
-            <div key={i}>
-              {h.registration} - {h.make}
+        {/* MAIN CARD */}
+        <div
+          style={{
+            maxWidth: 600,
+            margin: "auto",
+            background: theme.card,
+            padding: 20,
+            borderRadius: 12,
+            border: `1px solid ${theme.red}`,
+          }}
+        >
+          {/* AUTH */}
+          {!user.loggedIn ? (
+            <>
+              <input
+                placeholder="Email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                style={input}
+              />
+              <input
+                type="password"
+                placeholder="Password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                style={input}
+              />
+
+              <button style={btn} onClick={handleLogin}>
+                Login
+              </button>
+              <button style={btn} onClick={handleSignup}>
+                Sign Up
+              </button>
+            </>
+          ) : (
+            <p>🔥 Credits: {user.credits}</p>
+          )}
+
+          <hr />
+
+          {/* PAYMENT */}
+          <h3>Buy Credits</h3>
+          <button style={btn} onClick={handleBuyCredits}>
+            £4.99 for 5 checks
+          </button>
+
+          <hr />
+
+          {/* SEARCH */}
+          <h3>Check Vehicle</h3>
+
+          <input
+            placeholder="AB12CDE"
+            value={reg}
+            onChange={(e) => setReg(e.target.value.toUpperCase())}
+            style={input}
+          />
+
+          <div style={{ display: "flex", gap: 10 }}>
+            <button onClick={handleCheck} style={btn}>
+              {loading ? "Checking..." : "Search"}
+            </button>
+
+            <button onClick={loadHistory} style={{ ...btn, background: "#333" }}>
+              📜 History
+            </button>
+          </div>
+
+          {/* RESULT */}
+          {result && (
+            <div style={card}>
+              {result.error ? (
+                <p style={{ color: "red" }}>{result.error}</p>
+              ) : (
+                <>
+                  <p>🚗 {result.make}</p>
+                  <p>📅 {result.year}</p>
+                  <p>⛽ {result.fuel}</p>
+                  <p>🎨 {result.colour}</p>
+                </>
+              )}
             </div>
-          ))}
+          )}
+
+          {/* HISTORY */}
+          {history.length > 0 && (
+            <div style={{ marginTop: 20 }}>
+              <h3 style={{ color: theme.red }}>📜 Recent Searches</h3>
+
+              {history.map((item, i) => (
+                <div key={i} style={card}>
+                  <p><b>{item.registration}</b></p>
+                  <p>{item.make} • {item.year}</p>
+                  <p>{item.fuel}</p>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
-      )}
+
+        <div style={{ textAlign: "center", marginTop: 20, opacity: 0.5 }}>
+          © {new Date().getFullYear()} 1 Car Check
+        </div>
+      </div>
     </div>
   );
 }
+
+/* styles */
+const btn = {
+  padding: "10px",
+  background: "#e10600",
+  border: "none",
+  color: "white",
+  borderRadius: 6,
+  cursor: "pointer",
+  marginTop: 10,
+  flex: 1,
+};
+
+const input = {
+  width: "100%",
+  padding: 10,
+  marginTop: 10,
+  background: "#111",
+  color: "white",
+  border: "1px solid #333",
+  borderRadius: 6,
+};
+
+const card = {
+  marginTop: 10,
+  padding: 10,
+  background: "#111",
+  borderLeft: "4px solid #e10600",
+  borderRadius: 6,
+};
