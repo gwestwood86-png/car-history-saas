@@ -66,14 +66,16 @@ export default async function handler(req, res) {
     const data = await response.json();
 
     // ✅ FORMAT RESPONSE
-    const result = {
-      make: data.make || "Unknown",
-      year: data.yearOfManufacture || "Unknown",
-      fuel: data.fuelType || "Unknown",
-      colour: data.colour || "Unknown",
-      motStatus: data.motStatus || "Unknown",
-      taxStatus: data.taxStatus || "Unknown",
-    };
+const result = {
+  make: data.make || "Unknown",
+  year: data.yearOfManufacture || "Unknown",
+  fuel: data.fuelType || "Unknown",
+  colour: data.colour || "Unknown",
+
+  // ✅ safer handling
+  motStatus: data.motStatus ?? "Not available",
+  taxStatus: data.taxStatus ?? "Not available",
+};
 
     // ✅ SAVE TO FIREBASE (FIXED — SINGLE COLLECTION)
     await db.collection("history").add({

@@ -254,6 +254,8 @@ export default function CarHistorySaaS() {
                   <p>📅 {result.year}</p>
                   <p>⛽ {result.fuel}</p>
                   <p>🎨 {result.colour}</p>
+                  <p>🧾 MOT: {result.motStatus}</p>
+                  <p>💷 Tax: {result.taxStatus}</p>
                 </>
               )}
             </div>
