@@ -73,7 +73,7 @@ const userId = decoded.uid;
       taxStatus: data.taxStatus || "Unknown",
     };
 
-    await db.collection("carHistory").add({
+    await db.collection("History").add({
   userId,
   registration: registration.toUpperCase(),
   make: data.make,
