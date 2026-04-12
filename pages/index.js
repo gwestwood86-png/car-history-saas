@@ -274,11 +274,12 @@ export default function CarHistorySaaS() {
     {loading ? "Checking..." : "Search Vehicle"}
   </button>
 
-  <a href="/history" style={{ textDecoration: "none" }}>
-    <button style={{ ...btnStyle, background: "#333" }}>
-      📜 History
-    </button>
-  </a>
+  <button
+  style={{ ...btnStyle, background: "#333" }}
+  onClick={loadHistory}
+>
+  📜 Load History
+</button>
 </div>
 
           {/* RESULT */}
