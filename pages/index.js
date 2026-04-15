@@ -152,7 +152,7 @@ const handleLogin = async () => {
     await loadHistory();
 
     // deduct credits AFTER successful search
-    await updateDoc(doc(db, "users", user.uid), {
+    await updateDoc(doc(db, "users", auth.currentUser.uid), {
       credits: increment(-1),
     });
 
