@@ -72,24 +72,46 @@ export default function CarHistorySaaS() {
     }
   };
 
-  const handleBuyCredits = async () => {
-    if (!user.loggedIn) return alert("Login required");
+const handleBuyCredits = async () => {
+  if (!user.loggedIn) return alert("Login required");
 
+  try {
+    const res = await fetch("/api/create-checkout", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ userId: user.uid }),
+    });
+
+    // 👇 DEBUG: get raw response
+    const text = await res.text();
+    console.log("Checkout response:", text);
+
+    let data;
     try {
-      const res = await fetch("/api/create-checkout", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ userId: user.uid }),
-      });
-
-      const data = await res.json();
-      window.location.href = data.url;
-    } catch {
-      alert("Payment error");
+      data = JSON.parse(text);
+    } catch (e) {
+      alert("Server returned invalid response");
+      return;
     }
-  };
+
+    if (!res.ok) {
+      alert(data.error || "Checkout failed");
+      return;
+    }
+
+    if (data.url) {
+      window.location.href = data.url;
+    } else {
+      alert("No checkout URL returned");
+    }
+
+  } catch (err) {
+    console.error("Payment error:", err);
+    alert("Payment error");
+  }
+};
 
   const handleCheck = async () => {
     if (!reg || reg.length > 10) return alert("Invalid registration");
