@@ -66,15 +66,22 @@ export default function CarHistorySaaS() {
     }
   };
 
-  const handleLogin = async () => {
-    try {
-      await signInWithEmailAndPassword(auth, email, password);
-      setEmail("");
-      setPassword("");
-    } catch (err) {
-      alert(err.message);
-    }
-  };
+const handleLogin = async () => {
+  try {
+    console.log("LOGIN CLICKED:", email, password);
+
+    const result = await signInWithEmailAndPassword(auth, email, password);
+
+    console.log("LOGIN SUCCESS:", result.user);
+
+    // only clear AFTER success
+    setEmail("");
+    setPassword("");
+  } catch (err) {
+    console.error("LOGIN FAILED FULL ERROR:", err.code, err.message);
+    alert(err.code + " - " + err.message);
+  }
+};
 
   const handleBuyCredits = async () => {
     if (!user.loggedIn) return alert("Login required");
