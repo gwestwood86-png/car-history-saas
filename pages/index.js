@@ -292,22 +292,27 @@ const loadHistory = async () => {
           </div>
 
           {/* RESULT */}
-          {result && (
-            <div style={card}>
-              {result.error ? (
-                <p style={{ color: "red" }}>{result.error}</p>
-              ) : (
-                <>
-                  <p>🚗 {result.make}</p>
-                  <p>📅 {result.year}</p>
-                  <p>⛽ {result.fuel}</p>
-                  <p>🎨 {result.colour}</p>
-                  <p>🧾 MOT: {result.motStatus}</p>
-                  <p>💷 Tax: {result.taxStatus}</p>
-                </>
-              )}
-            </div>
-          )}
+{result && (
+  <div style={card}>
+    {result.error ? (
+      <p style={{ color: "red" }}>{result.error}</p>
+    ) : (
+      <>
+        <p>🚗 Make: {result.make}</p>
+        <p>📦 Model: {result.model}</p>
+        <p>📅 Year: {result.year || "N/A"}</p>
+
+        <p>⛽ Fuel: {result.fuel}</p>
+        <p>🎨 Colour: {result.colour}</p>
+
+        <p>🧾 MOT Due: {result.motDue}</p>
+        <p>🔧 Last MOT: {result.lastTest}</p>
+
+        <p>📊 Mileage: {result.mileage}</p>
+      </>
+    )}
+  </div>
+)}
 
           {/* HISTORY */}
           {history.length > 0 && (
