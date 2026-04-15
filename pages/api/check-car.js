@@ -113,7 +113,9 @@ export default async function handler(req, res) {
       model: vehicle.Model || "Unknown",
       fuel: vehicle.FuelType || "Unknown",
       colour: vehicle.Colour || "Unknown",
-
+      year: vehicle.FirstUsedDate
+        ? new Date(vehicle.FirstUsedDate).getFullYear()
+        : "Unknown",
       motDue: vehicle.MotDueDate || "Not available",
       lastTest: vehicle.LatestTestDate || "Not available",
 
