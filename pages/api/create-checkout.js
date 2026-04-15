@@ -10,8 +10,13 @@ export default async function handler(req, res) {
   try {
     const { userId } = req.body;
 
+    if (!userId) {
+      return res.status(400).json({ error: "Missing userId" });
+    }
+
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ["card"],
+      mode: "payment",
       line_items: [
         {
           price_data: {
@@ -19,44 +24,26 @@ export default async function handler(req, res) {
             product_data: {
               name: "5 Vehicle Checks",
             },
-            unit_amount: 499,
+            unit_amount: 499, // £4.99
           },
           quantity: 1,
         },
       ],
-      mode: "payment",
-		success_url: "https://car-history-saas.vercel.app",
-		cancel_url: "https://car-history-saas.vercel.app",
+      success_url: `${process.env.APP_URL}/success`,
+      cancel_url: `${process.env.APP_URL}/cancel`,
       metadata: {
         userId: userId,
+        credits: 5,
       },
     });
 
-    res.status(200).json({ url: session.url });
+    return res.status(200).json({ url: session.url });
+
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: "Something went wrong" });
+    console.error("STRIPE ERROR:", err);
+
+    return res.status(500).json({
+      error: err.message || "Something went wrong",
+    });
   }
 }
-const session = await stripe.checkout.sessions.create({
-  payment_method_types: ["card"],
-  mode: "payment",
-  line_items: [
-    {
-      price_data: {
-        currency: "gbp",
-        product_data: {
-          name: "Car History Checks",
-        },
-        unit_amount: 499,
-      },
-      quantity: 1,
-    },
-  ],
-  metadata: {
-    userId: req.body.userId,
-    credits: 5,
-  },
-  success_url: `${YOUR_URL}/success`,
-  cancel_url: `${YOUR_URL}/cancel`,
-});
