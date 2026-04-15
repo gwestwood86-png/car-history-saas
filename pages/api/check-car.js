@@ -5,66 +5,108 @@ import { getAuth } from "firebase-admin/auth";
 
 export default async function handler(req, res) {
   try {
+    // =========================
     // 🔐 AUTH
+    // =========================
     const token = req.headers.authorization?.split("Bearer ")[1];
 
     if (!token) {
-      return res.status(401).json({
-        error: "Unauthorized - no token provided",
-      });
+      return res.status(401).json({ error: "Unauthorized" });
     }
 
     const decoded = await getAuth().verifyIdToken(token);
     const userId = decoded.uid;
 
-    // ❌ METHOD CHECK
+    // =========================
+    // METHOD CHECK
+    // =========================
     if (req.method !== "POST") {
       return res.status(405).json({ error: "Method not allowed" });
     }
 
     const { registration } = req.body;
 
-    // ✅ VALIDATION
     if (!isValidUKPlate(registration)) {
-      return res.status(400).json({
-        error: "Invalid UK registration number",
-      });
+      return res.status(400).json({ error: "Invalid registration" });
     }
 
     const key = registration.replace(/\s/g, "").toUpperCase();
 
-    // ✅ CACHE
+    // =========================
+    // CACHE
+    // =========================
     const cached = getCache(key);
     if (cached) {
       return res.status(200).json(cached);
     }
 
-    // 🚗 VEHICLE DATA GLOBAL API (REPLACED DVLA)
-    const url = new URL("https://uk.api.vehicledataglobal.com/r2/lookup");
+    // =========================================================
+    // 1️⃣ VEHICLE DATA GLOBAL (PRIMARY SOURCE)
+    // =========================================================
+    let vehicle = null;
 
-    url.searchParams.append("ApiKey", process.env.VEHICLE_API_KEY);
-    url.searchParams.append("PackageName", "MotHistoryDetails");
-    url.searchParams.append("Vrm", key);
+    try {
+      const url = new URL("https://uk.api.vehicledataglobal.com/r2/lookup");
 
-    const response = await fetch(url);
-    const data = await response.json();
+      url.searchParams.append("ApiKey", process.env.VEHICLE_API_KEY);
+      url.searchParams.append("PackageName", "MotHistoryDetails");
+      url.searchParams.append("Vrm", key);
 
-    // ❌ HANDLE ERRORS
-    if (!response.ok || data?.ResponseInformation?.IsSuccessStatusCode === false) {
-      return res.status(400).json({
-        error:
-          data?.ResponseInformation?.StatusMessage ||
-          "Vehicle API request failed",
-      });
+      const vgResponse = await fetch(url);
+      const vgData = await vgResponse.json();
+
+      const status = vgData?.ResponseInformation?.StatusCode;
+
+      if (vgResponse.ok && status === 0 && vgData?.Results?.MotHistoryDetails) {
+        vehicle = vgData.Results.MotHistoryDetails;
+      } else {
+        console.log("⚠️ Vehicle Data failed, fallback to DVLA");
+      }
+    } catch (err) {
+      console.log("⚠️ Vehicle Data exception:", err.message);
     }
 
-    const vehicle = data?.Results?.MotHistoryDetails;
-
+    // =========================================================
+    // 2️⃣ DVLA FALLBACK
+    // =========================================================
     if (!vehicle) {
-      return res.status(404).json({ error: "Vehicle not found" });
+      const dvlaResponse = await fetch(
+        "https://driver-vehicle-licensing.api.gov.uk/vehicle-enquiry/v1/vehicles",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "x-api-key": process.env.DVLA_API_KEY,
+          },
+          body: JSON.stringify({
+            registrationNumber: key,
+          }),
+        }
+      );
+
+      if (!dvlaResponse.ok) {
+        return res.status(404).json({
+          error: "Vehicle not found in both APIs",
+        });
+      }
+
+      const dvla = await dvlaResponse.json();
+
+      vehicle = {
+        Vrm: key,
+        Make: dvla.make,
+        Model: "Unknown",
+        FuelType: dvla.fuelType,
+        Colour: dvla.colour,
+        MotDueDate: null,
+        LatestTestDate: null,
+        MotTestDetailsList: [],
+      };
     }
 
-    // ✅ FORMAT RESPONSE (your SaaS output)
+    // =========================================================
+    // 3️⃣ FORMAT OUTPUT (UNIFIED SaaS RESPONSE)
+    // =========================================================
     const result = {
       registration: vehicle.Vrm,
       make: vehicle.Make || "Unknown",
@@ -81,7 +123,9 @@ export default async function handler(req, res) {
       motHistory: vehicle.MotTestDetailsList || [],
     };
 
-    // ✅ SAVE TO FIREBASE (UNCHANGED)
+    // =========================================================
+    // 4️⃣ FIRESTORE SAVE
+    // =========================================================
     await db.collection("history").add({
       userId,
       registration: key,
@@ -89,12 +133,12 @@ export default async function handler(req, res) {
       model: result.model,
       fuel: result.fuel,
       colour: result.colour,
-      motDue: result.motDue,
-      lastTest: result.lastTest,
       createdAt: new Date(),
     });
 
-    // ✅ CACHE SAVE
+    // =========================================================
+    // 5️⃣ CACHE
+    // =========================================================
     setCache(key, result);
 
     return res.status(200).json(result);
