@@ -39,54 +39,58 @@ export default async function handler(req, res) {
       return res.status(200).json(cached);
     }
 
-    // 🚗 DVLA API
-    const response = await fetch(
-      "https://driver-vehicle-licensing.api.gov.uk/vehicle-enquiry/v1/vehicles",
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-api-key": process.env.DVLA_API_KEY,
-        },
-        body: JSON.stringify({
-          registrationNumber: key,
-        }),
-      }
-    );
+    // 🚗 VEHICLE DATA GLOBAL API (REPLACED DVLA)
+    const url = new URL("https://uk.api.vehicledataglobal.com/r2/lookup");
 
-    // ❌ NOT FOUND
-    if (response.status === 404) {
+    url.searchParams.append("ApiKey", process.env.VEHICLE_API_KEY);
+    url.searchParams.append("PackageName", "MotHistoryDetails");
+    url.searchParams.append("Vrm", key);
+
+    const response = await fetch(url);
+    const data = await response.json();
+
+    // ❌ HANDLE ERRORS
+    if (!response.ok || data?.ResponseInformation?.IsSuccessStatusCode === false) {
+      return res.status(400).json({
+        error:
+          data?.ResponseInformation?.StatusMessage ||
+          "Vehicle API request failed",
+      });
+    }
+
+    const vehicle = data?.Results?.MotHistoryDetails;
+
+    if (!vehicle) {
       return res.status(404).json({ error: "Vehicle not found" });
     }
 
-    if (!response.ok) {
-      throw new Error("DVLA API request failed");
-    }
+    // ✅ FORMAT RESPONSE (your SaaS output)
+    const result = {
+      registration: vehicle.Vrm,
+      make: vehicle.Make || "Unknown",
+      model: vehicle.Model || "Unknown",
+      fuel: vehicle.FuelType || "Unknown",
+      colour: vehicle.Colour || "Unknown",
 
-    const data = await response.json();
+      motDue: vehicle.MotDueDate || "Not available",
+      lastTest: vehicle.LatestTestDate || "Not available",
 
-    // ✅ FORMAT RESPONSE
-const result = {
-  make: data.make || "Unknown",
-  year: data.yearOfManufacture || "Unknown",
-  fuel: data.fuelType || "Unknown",
-  colour: data.colour || "Unknown",
+      mileage:
+        vehicle.MotTestDetailsList?.[0]?.OdometerReading || "Not available",
 
-  // ✅ safer handling
-  motStatus: data.motStatus ?? "Not available",
-  taxStatus: data.taxStatus ?? "Not available",
-};
+      motHistory: vehicle.MotTestDetailsList || [],
+    };
 
-    // ✅ SAVE TO FIREBASE (FIXED — SINGLE COLLECTION)
+    // ✅ SAVE TO FIREBASE (UNCHANGED)
     await db.collection("history").add({
       userId,
       registration: key,
       make: result.make,
-      year: result.year,
+      model: result.model,
       fuel: result.fuel,
       colour: result.colour,
-      motStatus: result.motStatus,
-      taxStatus: result.taxStatus,
+      motDue: result.motDue,
+      lastTest: result.lastTest,
       createdAt: new Date(),
     });
 
@@ -94,7 +98,6 @@ const result = {
     setCache(key, result);
 
     return res.status(200).json(result);
-
   } catch (err) {
     console.error("🔥 API ERROR:", err);
 
