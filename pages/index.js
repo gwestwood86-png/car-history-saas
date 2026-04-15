@@ -49,7 +49,7 @@ export default function CarHistorySaaS() {
         await loadHistory();
       } else {
         setUser({ loggedIn: false, credits: 0 });
-        setHistory([]); // reset history on logout
+        setHistory([]);
       }
     });
 
@@ -59,6 +59,8 @@ export default function CarHistorySaaS() {
   const handleSignup = async () => {
     try {
       await createUserWithEmailAndPassword(auth, email, password);
+      setEmail("");
+      setPassword("");
     } catch (err) {
       alert(err.message);
     }
@@ -67,51 +69,51 @@ export default function CarHistorySaaS() {
   const handleLogin = async () => {
     try {
       await signInWithEmailAndPassword(auth, email, password);
+      setEmail("");
+      setPassword("");
     } catch (err) {
       alert(err.message);
     }
   };
 
-const handleBuyCredits = async () => {
-  if (!user.loggedIn) return alert("Login required");
+  const handleBuyCredits = async () => {
+    if (!user.loggedIn) return alert("Login required");
 
-  try {
-    const res = await fetch("/api/create-checkout", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ userId: user.uid }),
-    });
-
-    // 👇 DEBUG: get raw response
-    const text = await res.text();
-    console.log("Checkout response:", text);
-
-    let data;
     try {
-      data = JSON.parse(text);
-    } catch (e) {
-      alert("Server returned invalid response");
-      return;
-    }
+      const res = await fetch("/api/create-checkout", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ userId: user.uid }),
+      });
 
-    if (!res.ok) {
-      alert(data.error || "Checkout failed");
-      return;
-    }
+      const text = await res.text();
+      console.log("Checkout response:", text);
 
-    if (data.url) {
-      window.location.href = data.url;
-    } else {
-      alert("No checkout URL returned");
-    }
+      let data;
+      try {
+        data = JSON.parse(text);
+      } catch {
+        alert("Server returned invalid response");
+        return;
+      }
 
-  } catch (err) {
-    console.error("Payment error:", err);
-    alert("Payment error");
-  }
-};
+      if (!res.ok) {
+        alert(data.error || "Checkout failed");
+        return;
+      }
+
+      if (data.url) {
+        window.location.href = data.url;
+      } else {
+        alert("No checkout URL returned");
+      }
+    } catch (err) {
+      console.error("Payment error:", err);
+      alert("Payment error");
+    }
+  };
 
   const handleCheck = async () => {
     if (!reg || reg.length > 10) return alert("Invalid registration");
@@ -186,7 +188,13 @@ const handleBuyCredits = async () => {
         color: "white",
       }}
     >
-      <div style={{ background: "rgba(0,0,0,0.85)", minHeight: "100vh", padding: 20 }}>
+      <div
+        style={{
+          background: "rgba(0,0,0,0.85)",
+          minHeight: "100vh",
+          padding: 20,
+        }}
+      >
         {/* HEADER */}
         <div style={{ textAlign: "center", marginBottom: 20 }}>
           <h1 style={{ color: theme.red }}>1 CAR CHECK</h1>
@@ -288,13 +296,43 @@ const handleBuyCredits = async () => {
             <div style={{ marginTop: 20 }}>
               <h3 style={{ color: theme.red }}>📜 Recent Searches</h3>
 
-              {history.map((item, i) => (
-                <div key={i} style={card}>
-                  <p><b>{item.registration}</b></p>
-                  <p>{item.make} • {item.year}</p>
+              {/* Latest 2 */}
+              {history.slice(0, 2).map((item) => (
+                <div key={item.id || item.registration} style={card}>
+                  <p>
+                    <b>{item.registration}</b>
+                  </p>
+                  <p>
+                    {item.make} • {item.year}
+                  </p>
                   <p>{item.fuel}</p>
                 </div>
               ))}
+
+              {/* Scrollable older history */}
+              {history.length > 2 && (
+                <div
+                  style={{
+                    maxHeight: 200,
+                    overflowY: "auto",
+                    marginTop: 10,
+                    paddingRight: 5,
+                    borderTop: "1px solid #333",
+                  }}
+                >
+                  {history.slice(2).map((item) => (
+                    <div key={item.id || item.registration} style={card}>
+                      <p>
+                        <b>{item.registration}</b>
+                      </p>
+                      <p>
+                        {item.make} • {item.year}
+                      </p>
+                      <p>{item.fuel}</p>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
         </div>

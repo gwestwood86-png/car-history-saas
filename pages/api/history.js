@@ -11,15 +11,13 @@ export default async function handler(req, res) {
 
     const decoded = await getAuth().verifyIdToken(token);
 
-    // ✅ Safer Firestore query
     const snapshot = await db
       .collection("history")
       .where("userId", "==", decoded.uid)
-      .orderBy("createdAt", "desc") // 🔥 newest first
+      .orderBy("createdAt", "desc")
       .limit(10)
       .get();
 
-    // ✅ Always return clean array
     const history = snapshot.docs.map((doc) => ({
       id: doc.id,
       ...doc.data(),
