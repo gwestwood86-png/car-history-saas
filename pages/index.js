@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { auth, db } from "../lib/firebase";
-import { doc, getDoc, setDoc } from "firebase/firestore";
+import { doc, getDoc, setDoc, updateDoc, increment } from "firebase/firestore";
 import {
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
@@ -123,66 +123,77 @@ const handleLogin = async () => {
   };
 
   const handleCheck = async () => {
-    if (!reg || reg.length > 10) return alert("Invalid registration");
-    if (!user.loggedIn) return alert("Please login");
+  if (!reg || reg.length > 10) return alert("Invalid registration");
+  if (!user.loggedIn) return alert("Please login");
 
-    setLoading(true);
-    setResult(null);
+  setLoading(true);
+  setResult(null);
 
-    try {
-      const token = await auth.currentUser.getIdToken();
+  try {
+    const token = await auth.currentUser.getIdToken();
 
-      const res = await fetch("/api/check-car", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          registration: reg.toUpperCase().trim(),
-        }),
-      });
+    const res = await fetch("/api/check-car", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({
+        registration: reg.toUpperCase().trim(),
+      }),
+    });
 
-      const data = await res.json();
+    const data = await res.json();
 
-      if (!res.ok) throw new Error(data.error || "Request failed");
+    if (!res.ok) throw new Error(data.error || "Request failed");
 
-      setResult(data);
-      await loadHistory();
-    } catch (err) {
-      console.error("CHECK ERROR:", err);
-      setResult({ error: err.message });
-    }
+    setResult(data);
 
-    setLoading(false);
-  };
+    await loadHistory();
 
-  const loadHistory = async () => {
-    if (!auth.currentUser) return;
+    // deduct credits AFTER successful search
+    await updateDoc(doc(db, "users", user.uid), {
+      credits: increment(-1),
+    });
 
-    try {
-      const token = await auth.currentUser.getIdToken();
+    setUser((prev) => ({
+      ...prev,
+      credits: prev.credits - 1,
+    }));
+  } catch (err) {
+    console.error("CHECK ERROR:", err);
+    setResult({ error: err.message });
+  }
 
-      const res = await fetch("/api/history", {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
+  setLoading(false);
+}; // ✅ THIS WAS MISSING
 
-      const data = await res.json();
+const loadHistory = async () => {
+  if (!auth.currentUser) return;
 
-      if (!res.ok) {
-        console.error("HISTORY ERROR:", data);
-        setHistory([]);
-        return;
-      }
+  try {
+    const token = await auth.currentUser.getIdToken();
 
-      setHistory(Array.isArray(data) ? data : []);
-    } catch (err) {
-      console.error("HISTORY FETCH ERROR:", err);
+    const res = await fetch("/api/history", {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+
+    const data = await res.json();
+
+    if (!res.ok) {
+      console.error("HISTORY ERROR:", data);
       setHistory([]);
+      return;
     }
-  };
+
+    setHistory(Array.isArray(data) ? data : []);
+  } catch (err) {
+    console.error("HISTORY FETCH ERROR:", err);
+    setHistory([]);
+  }
+};
 
   return (
     <div
